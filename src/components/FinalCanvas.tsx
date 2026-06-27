@@ -8,36 +8,53 @@ interface PlacedCard extends CardItem {
   x: number;
   y: number;
   z: number;
+  group: 'value' | 'mission';
 }
 
 interface FinalCanvasProps {
-  selected: CardItem[];
+  values: CardItem[];
+  missions: CardItem[];
   onRestart: () => void;
 }
 
-export default function FinalCanvas({ selected, onRestart }: FinalCanvasProps) {
+const VALUE_RANK_COLORS = ['#16A34A', '#22C55E', '#F59E0B', '#F97316', '#EF4444'];
+
+export default function FinalCanvas({ values, missions, onRestart }: FinalCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [cards, setCards] = useState<PlacedCard[]>([]);
   const [dragId, setDragId] = useState<string | null>(null);
-  const [topZ, setTopZ] = useState(1);
+  const [topZ, setTopZ] = useState(100);
   const [busy, setBusy] = useState(false);
   const offset = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
-    const cols = Math.ceil(Math.sqrt(selected.length)) || 1;
-    setCards(
-      selected.map((c, i) => ({
+    const placed: PlacedCard[] = [];
+
+    // Ценности — левая колонка, вертикально по рангу
+    values.forEach((c, i) => {
+      placed.push({ ...c, x: 32, y: 32 + i * 134, z: 1, group: 'value' });
+    });
+
+    // Миссии — правее, сетка
+    const mCol = 3;
+    missions.forEach((c, i) => {
+      placed.push({
         ...c,
-        x: 30 + (i % cols) * 210 + Math.random() * 16,
-        y: 30 + Math.floor(i / cols) * 170 + Math.random() * 16,
+        x: 200 + (i % mCol) * 226 + Math.random() * 10,
+        y: 32 + Math.floor(i / mCol) * 174 + Math.random() * 10,
         z: 1,
-      }))
-    );
-  }, [selected]);
+        group: 'mission',
+      });
+    });
+
+    setCards(placed);
+    setTopZ(100);
+  }, [values, missions]);
 
   const toLocal = useCallback((clientX: number, clientY: number) => {
     const rect = canvasRef.current!.getBoundingClientRect();
-    return { x: clientX - rect.left, y: clientY - rect.top };
+    const scrollTop = canvasRef.current!.scrollTop;
+    return { x: clientX - rect.left, y: clientY - rect.top + scrollTop };
   }, []);
 
   const startDrag = (e: React.PointerEvent, card: PlacedCard) => {
@@ -65,14 +82,16 @@ export default function FinalCanvas({ selected, onRestart }: FinalCanvasProps) {
     setBusy(true);
     try {
       const node = canvasRef.current;
-      const opts = { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true };
+      const opts = { pixelRatio: 2, backgroundColor: '#f9f7f3', cacheBust: true };
       if (format === 'pdf') {
         const dataUrl = await toJpeg(node, { ...opts, quality: 0.95 });
-        const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [node.offsetWidth, node.offsetHeight] });
-        pdf.addImage(dataUrl, 'JPEG', 0, 0, node.offsetWidth, node.offsetHeight);
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [node.scrollWidth, node.scrollHeight] });
+        pdf.addImage(dataUrl, 'JPEG', 0, 0, node.scrollWidth, node.scrollHeight);
         pdf.save('kompozitsiya.pdf');
       } else {
-        const dataUrl = format === 'png' ? await toPng(node, opts) : await toJpeg(node, { ...opts, quality: 0.95 });
+        const dataUrl = format === 'png'
+          ? await toPng(node, opts)
+          : await toJpeg(node, { ...opts, quality: 0.95 });
         const link = document.createElement('a');
         link.download = `kompozitsiya.${format}`;
         link.href = dataUrl;
@@ -83,16 +102,22 @@ export default function FinalCanvas({ selected, onRestart }: FinalCanvasProps) {
     }
   };
 
+  // Высота холста — чтобы вместить все карты
+  const canvasH = Math.max(
+    680,
+    values.length * 134 + 80,
+    Math.ceil(missions.length / 3) * 174 + 80,
+  );
+
   return (
     <div className="animate-fade-in">
+      {/* Шапка */}
       <div className="flex flex-col gap-4 mb-6 md:flex-row md:items-end md:justify-between">
         <div>
-          <span className="text-xs font-semibold tracking-widest uppercase text-accent">
-            Готово
-          </span>
+          <span className="text-xs font-semibold tracking-widest uppercase text-accent">Финал</span>
           <h2 className="mt-2 text-3xl font-display font-medium text-foreground">Ваша композиция</h2>
           <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-            {selected.length} карт на общем холсте. Передвигайте их, выстраивая итоговый образ, и сохраните результат.
+            {values.length} ценностей и {missions.length} {missions.length === 1 ? 'миссия' : missions.length < 5 ? 'миссии' : 'миссий'} на общем холсте. Передвигайте карты, выстраивая итоговый образ.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -102,36 +127,97 @@ export default function FinalCanvas({ selected, onRestart }: FinalCanvasProps) {
         </div>
       </div>
 
+      {/* Легенда групп */}
+      <div className="flex flex-wrap items-center gap-4 mb-4 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: '#E8E2D6' }} />
+          Ценности (5 шт., по приоритету)
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: '#D8DCE3' }} />
+          Миссии ({missions.length} шт.)
+        </span>
+      </div>
+
+      {/* Холст */}
       <div
         ref={canvasRef}
         onPointerMove={onMove}
         onPointerUp={() => setDragId(null)}
-        className="relative h-[64vh] min-h-[480px] w-full overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card to-secondary card-shadow no-select touch-none"
+        style={{ height: Math.min(canvasH, 700) }}
+        className="dot-grid relative w-full overflow-y-auto rounded-2xl border border-border bg-card card-shadow no-select touch-none"
       >
-        {cards.map((card) => (
-          <div
-            key={card.id}
-            onPointerDown={(e) => startDrag(e, card)}
-            style={{
-              left: card.x,
-              top: card.y,
-              zIndex: card.z,
-              backgroundColor: card.color,
-            }}
-            className={`absolute flex h-[160px] w-[190px] cursor-grab items-center rounded-xl p-4 transition-shadow active:cursor-grabbing ${
-              dragId === card.id ? 'card-shadow-lg scale-105' : 'card-shadow'
-            }`}
-          >
-            <span className="text-[12px] font-medium leading-snug text-foreground/90">
-              {card.title}
-            </span>
+        <div style={{ height: canvasH, position: 'relative' }}>
+          {/* Подписи зон */}
+          <div className="pointer-events-none absolute left-4 top-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+            Ценности
           </div>
-        ))}
+          {missions.length > 0 && (
+            <div className="pointer-events-none absolute left-52 top-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+              Миссии
+            </div>
+          )}
+
+          {/* Разделитель */}
+          {missions.length > 0 && (
+            <div className="pointer-events-none absolute left-[184px] top-0 bottom-0 w-px bg-border/60" />
+          )}
+
+          {cards.map((card, idx) => {
+            const isValue = card.group === 'value';
+            const valueIdx = isValue ? values.findIndex((v) => v.id === card.id) : -1;
+            return (
+              <div
+                key={card.id}
+                onPointerDown={(e) => startDrag(e, card)}
+                style={{
+                  left: card.x,
+                  top: card.y,
+                  width: isValue ? 148 : 210,
+                  height: isValue ? 120 : 158,
+                  zIndex: card.z,
+                  backgroundColor: card.color,
+                }}
+                className={`absolute flex cursor-grab flex-col justify-between rounded-xl p-3.5 active:cursor-grabbing ${
+                  dragId === card.id ? 'card-shadow-lg scale-105' : 'card-shadow'
+                }`}
+              >
+                {isValue && valueIdx >= 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-white"
+                      style={{ backgroundColor: VALUE_RANK_COLORS[valueIdx] }}
+                    >
+                      {valueIdx + 1}
+                    </span>
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-foreground/40">
+                      Ценность
+                    </span>
+                  </div>
+                )}
+                {!isValue && (
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-foreground/40">
+                    Миссия
+                  </span>
+                )}
+                <span
+                  className={`font-semibold leading-tight text-foreground/90 ${
+                    isValue ? 'text-[14px]' : 'text-[11px] leading-snug'
+                  }`}
+                >
+                  {card.title}
+                </span>
+                {/* пустой div для justify-between */}
+                <div />
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="mt-6 flex items-center justify-between">
+      <div className="mt-5 flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          {busy ? 'Готовим файл…' : 'Перетаскивайте карты для финальной композиции'}
+          {busy ? 'Готовим файл для скачивания…' : 'Перетаскивайте карты для финального расположения, затем сохраните.'}
         </p>
         <button
           onClick={onRestart}
@@ -145,18 +231,8 @@ export default function FinalCanvas({ selected, onRestart }: FinalCanvasProps) {
   );
 }
 
-function ExportButton({
-  icon,
-  label,
-  onClick,
-  disabled,
-  primary,
-}: {
-  icon: string;
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  primary?: boolean;
+function ExportButton({ icon, label, onClick, disabled, primary }: {
+  icon: string; label: string; onClick: () => void; disabled?: boolean; primary?: boolean;
 }) {
   return (
     <button

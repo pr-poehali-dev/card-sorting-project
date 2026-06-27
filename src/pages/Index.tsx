@@ -9,20 +9,29 @@ type Phase = 'home' | 'sorting' | 'final';
 export default function Index() {
   const [phase, setPhase] = useState<Phase>('home');
   const [stage, setStage] = useState(0);
-  const [finalCards, setFinalCards] = useState<CardItem[]>([]);
+  const [selectedValues, setSelectedValues] = useState<CardItem[]>([]); // 5 ценностей из этапа 1
+  const [selectedMissions, setSelectedMissions] = useState<CardItem[]>([]); // до 3 миссий из этапа 3
   const appRef = useRef<HTMLDivElement>(null);
 
   const startApp = () => {
     setStage(0);
+    setSelectedValues([]);
+    setSelectedMissions([]);
     setPhase('sorting');
     setTimeout(() => appRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
   };
 
-  const handleStageComplete = (kept: CardItem[]) => {
-    if (stage < STAGES.length - 1) {
+  const handleStageComplete = (kept: CardItem[], ranked?: CardItem[]) => {
+    const s = STAGES[stage];
+    if (s.kind === 'values') {
+      setSelectedValues(ranked ?? kept);
+      setStage(stage + 1);
+    } else if (s.kind === 'questions') {
+      // вопросы просто переходят к следующему этапу, карты не сохраняем
       setStage(stage + 1);
     } else {
-      setFinalCards(kept);
+      // миссии — финал
+      setSelectedMissions(kept);
       setPhase('final');
     }
     setTimeout(() => appRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
@@ -31,7 +40,8 @@ export default function Index() {
   const restart = () => {
     setPhase('home');
     setStage(0);
-    setFinalCards([]);
+    setSelectedValues([]);
+    setSelectedMissions([]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -55,9 +65,16 @@ export default function Index() {
               stageIndex={STAGES[stage].index}
               totalStages={STAGES.length}
               onComplete={handleStageComplete}
+              selectedValues={STAGES[stage].kind === 'questions' ? selectedValues : undefined}
             />
           )}
-          {phase === 'final' && <FinalCanvas selected={finalCards} onRestart={restart} />}
+          {phase === 'final' && (
+            <FinalCanvas
+              values={selectedValues}
+              missions={selectedMissions}
+              onRestart={restart}
+            />
+          )}
         </section>
       )}
 
@@ -279,18 +296,24 @@ function Contacts() {
             Напишите нам — расскажем, как адаптировать систему под ваши карты и задачи.
           </p>
           <div className="mt-8 space-y-3">
-            <a href="mailto:hello@kartasmyslov.ru" className="flex items-center gap-3 text-foreground">
+            <div className="flex items-center gap-3 text-foreground font-medium">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary">
+                <Icon name="User" size={18} />
+              </span>
+              Еловикова Екатерина
+            </div>
+            <a href="tel:+79025033775" className="flex items-center gap-3 text-foreground hover:text-accent transition-colors">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary">
+                <Icon name="Phone" size={18} />
+              </span>
+              +7 902 503 37 75
+            </a>
+            <a href="mailto:i@eelovikova.ru" className="flex items-center gap-3 text-foreground hover:text-accent transition-colors">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary">
                 <Icon name="Mail" size={18} />
               </span>
-              hello@kartasmyslov.ru
+              i@eelovikova.ru
             </a>
-            <div className="flex items-center gap-3 text-foreground">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary">
-                <Icon name="MapPin" size={18} />
-              </span>
-              Москва, работаем онлайн
-            </div>
           </div>
         </div>
 
