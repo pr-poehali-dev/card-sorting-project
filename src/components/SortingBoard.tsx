@@ -1,12 +1,13 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
-import { CardItem } from '@/lib/cards-data';
+import { CardItem, StageKind } from '@/lib/cards-data';
 
 interface PlacedCard extends CardItem {
   x: number;
   y: number;
   z: number;
   rank: number | null;
+  flipped: boolean;
 }
 
 interface SortingBoardProps {
@@ -16,6 +17,9 @@ interface SortingBoardProps {
   stageSubtitle: string;
   stageIndex: number;
   totalStages: number;
+  kind: StageKind;
+  flippable: boolean;
+  keepLimit: number | null;
 }
 
 const RANK_COLORS = ['#16A34A', '#F59E0B', '#EF4444'];
@@ -27,28 +31,39 @@ export default function SortingBoard({
   stageSubtitle,
   stageIndex,
   totalStages,
+  kind,
+  flippable,
+  keepLimit,
 }: SortingBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null);
   const [cards, setCards] = useState<PlacedCard[]>([]);
   const [removed, setRemoved] = useState<CardItem[]>([]);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [moved, setMoved] = useState(false);
   const [topZ, setTopZ] = useState(1);
   const offset = useRef({ x: 0, y: 0 });
 
+  const isBig = kind !== 'values';
+  const cardW = isBig ? 200 : 86;
+  const cardH = isBig ? 150 : 106;
+
   useEffect(() => {
-    const cols = 12;
+    const colW = isBig ? 220 : 30;
+    const rowH = isBig ? 168 : 26;
+    const cols = isBig ? 4 : 12;
     setCards(
       deck.map((c, i) => ({
         ...c,
-        x: 24 + (i % cols) * 28 + Math.random() * 10,
-        y: 24 + Math.floor(i / cols) * 24 + Math.random() * 8,
+        x: 20 + (i % cols) * colW + Math.random() * (isBig ? 14 : 8),
+        y: 20 + Math.floor(i / cols) * rowH + Math.random() * (isBig ? 12 : 6),
         z: 1,
         rank: null,
+        flipped: !flippable,
       }))
     );
     setRemoved([]);
     setTopZ(1);
-  }, [deck]);
+  }, [deck, isBig, flippable]);
 
   const pointerToBoard = useCallback((clientX: number, clientY: number) => {
     const rect = boardRef.current!.getBoundingClientRect();
@@ -63,21 +78,26 @@ export default function SortingBoard({
     setTopZ(nz);
     setCards((prev) => prev.map((c) => (c.id === card.id ? { ...c, z: nz } : c)));
     setDragId(card.id);
+    setMoved(false);
   };
 
   const onMove = (e: React.PointerEvent) => {
     if (!dragId) return;
     const p = pointerToBoard(e.clientX, e.clientY);
+    setMoved(true);
     setCards((prev) =>
       prev.map((c) =>
-        c.id === dragId
-          ? { ...c, x: p.x - offset.current.x, y: p.y - offset.current.y }
-          : c
+        c.id === dragId ? { ...c, x: p.x - offset.current.x, y: p.y - offset.current.y } : c
       )
     );
   };
 
-  const endDrag = () => setDragId(null);
+  const endDrag = (card: PlacedCard) => {
+    if (!moved && flippable) {
+      setCards((prev) => prev.map((c) => (c.id === card.id ? { ...c, flipped: !c.flipped } : c)));
+    }
+    setDragId(null);
+  };
 
   const removeCard = (id: string) => {
     setCards((prev) => {
@@ -101,7 +121,7 @@ export default function SortingBoard({
     setRemoved((prev) => {
       if (!prev.length) return prev;
       const last = prev[prev.length - 1];
-      setCards((c) => [...c, { ...last, x: 40, y: 40, z: topZ + 1, rank: null }]);
+      setCards((c) => [...c, { ...last, x: 30, y: 30, z: topZ + 1, rank: null, flipped: !flippable }]);
       setTopZ((z) => z + 1);
       return prev.slice(0, -1);
     });
@@ -114,16 +134,18 @@ export default function SortingBoard({
         const rb = b.rank === null ? 99 : b.rank;
         return ra - rb;
       });
-      const cols = 10;
+      const cols = isBig ? 4 : 9;
       return ranked.map((c, i) => ({
         ...c,
-        x: 24 + (i % cols) * 92,
-        y: 24 + Math.floor(i / cols) * 120,
+        x: 20 + (i % cols) * (cardW + 16),
+        y: 20 + Math.floor(i / cols) * (cardH + 16),
       }));
     });
   };
 
   const kept = cards.length;
+  const overLimit = keepLimit !== null && kept > keepLimit;
+  const canProceed = kept > 0 && (keepLimit === null || kept <= keepLimit);
 
   return (
     <div className="animate-fade-in">
@@ -145,10 +167,22 @@ export default function SortingBoard({
             </div>
           </div>
           <h2 className="text-3xl font-display font-medium text-foreground">{stageTitle}</h2>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">{stageSubtitle}</p>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{stageSubtitle}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Stat label="На столе" value={kept} />
+          {keepLimit !== null && (
+            <div
+              className={`rounded-xl border px-4 py-2 text-center card-shadow ${
+                overLimit ? 'border-destructive bg-destructive/5' : 'border-border bg-card'
+              }`}
+            >
+              <div className={`text-xl font-display font-medium tabular-nums ${overLimit ? 'text-destructive' : 'text-foreground'}`}>
+                {kept}/{keepLimit}
+              </div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">оставить</div>
+            </div>
+          )}
+          {keepLimit === null && <Stat label="На столе" value={kept} />}
           <Stat label="Убрано" value={removed.length} />
         </div>
       </div>
@@ -170,8 +204,7 @@ export default function SortingBoard({
       <div
         ref={boardRef}
         onPointerMove={onMove}
-        onPointerUp={endDrag}
-        className="dot-grid relative h-[60vh] min-h-[440px] w-full overflow-hidden rounded-2xl border border-border bg-card card-shadow no-select touch-none"
+        className="dot-grid relative h-[64vh] min-h-[480px] w-full overflow-hidden rounded-2xl border border-border bg-card card-shadow no-select touch-none"
       >
         {cards.length === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
@@ -183,56 +216,78 @@ export default function SortingBoard({
           <div
             key={card.id}
             onPointerDown={(e) => startDrag(e, card)}
+            onPointerUp={() => endDrag(card)}
             style={{
               left: card.x,
               top: card.y,
+              width: cardW,
+              height: cardH,
               zIndex: card.z,
-              backgroundColor: card.color,
+              backgroundColor: card.flipped ? card.color : '#2A2E37',
               borderColor: card.rank !== null ? RANK_COLORS[card.rank] : 'transparent',
             }}
-            className={`group absolute flex h-[104px] w-[84px] cursor-grab flex-col justify-between rounded-xl border-2 p-2.5 transition-shadow active:cursor-grabbing ${
+            className={`group absolute flex cursor-grab flex-col justify-between rounded-xl border-2 p-3 transition-shadow active:cursor-grabbing ${
               dragId === card.id ? 'card-shadow-lg scale-105' : 'card-shadow'
             }`}
           >
-            <div className="flex items-start justify-between">
-              {card.rank !== null && (
-                <span
-                  className="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
-                  style={{ backgroundColor: RANK_COLORS[card.rank] }}
-                >
-                  {card.rank + 1}
+            {!card.flipped ? (
+              <div className="flex h-full w-full flex-col items-center justify-center text-center">
+                <Icon name="Sparkles" size={isBig ? 26 : 18} className="text-white/40" />
+                <span className="mt-2 text-[10px] font-medium uppercase tracking-widest text-white/40">
+                  Нажмите
                 </span>
-              )}
-              <button
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => removeCard(card.id)}
-                className="ml-auto flex h-4 w-4 items-center justify-center rounded-full bg-black/10 text-foreground/60 opacity-0 transition-opacity hover:bg-destructive hover:text-white group-hover:opacity-100"
-                aria-label="Удалить"
-              >
-                <Icon name="X" size={10} />
-              </button>
-            </div>
-            <span className="text-[13px] font-semibold leading-tight text-foreground/90">
-              {card.title}
-            </span>
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => cycleRank(card.id)}
-              className="self-start rounded-md bg-black/5 px-1.5 py-0.5 text-[9px] font-medium text-foreground/60 transition-colors hover:bg-black/10"
-            >
-              Ранг
-            </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start justify-between">
+                  {card.rank !== null && (
+                    <span
+                      className="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                      style={{ backgroundColor: RANK_COLORS[card.rank] }}
+                    >
+                      {card.rank + 1}
+                    </span>
+                  )}
+                  <button
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => removeCard(card.id)}
+                    className="ml-auto flex h-4 w-4 items-center justify-center rounded-full bg-black/10 text-foreground/60 opacity-0 transition-opacity hover:bg-destructive hover:text-white group-hover:opacity-100"
+                    aria-label="Удалить"
+                  >
+                    <Icon name="X" size={10} />
+                  </button>
+                </div>
+                <span
+                  className={`font-semibold leading-tight text-foreground/90 ${
+                    isBig ? 'text-[11px] leading-snug overflow-hidden' : 'text-[13px]'
+                  }`}
+                >
+                  {card.title}
+                </span>
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => cycleRank(card.id)}
+                  className="self-start rounded-md bg-black/5 px-1.5 py-0.5 text-[9px] font-medium text-foreground/60 transition-colors hover:bg-black/10"
+                >
+                  Ранг
+                </button>
+              </>
+            )}
           </div>
         ))}
       </div>
 
       <div className="mt-6 flex flex-col items-center justify-between gap-3 sm:flex-row">
         <p className="text-xs text-muted-foreground">
-          Перетаскивайте карты мышью. Наведите для удаления, нажмите «Ранг» для приоритета.
+          {flippable
+            ? 'Нажмите на карту, чтобы перевернуть. Перетаскивайте, удерживая нажатие.'
+            : overLimit
+            ? `Оставьте не больше ${keepLimit} карт, чтобы продолжить.`
+            : 'Перетаскивайте карты мышью. Наведите для удаления, нажмите «Ранг» для приоритета.'}
         </p>
         <button
           onClick={() => onComplete(cards)}
-          disabled={kept === 0}
+          disabled={!canProceed}
           className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-all hover:gap-3 disabled:opacity-40"
         >
           {stageIndex < totalStages ? 'Перейти к следующему этапу' : 'Собрать композицию'}

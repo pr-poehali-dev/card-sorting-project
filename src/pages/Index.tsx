@@ -2,29 +2,25 @@ import { useState, useRef } from 'react';
 import Icon from '@/components/ui/icon';
 import SortingBoard from '@/components/SortingBoard';
 import FinalCanvas from '@/components/FinalCanvas';
-import { STAGES, generateDeck, CardItem } from '@/lib/cards-data';
+import { STAGES, deckForStage, CardItem } from '@/lib/cards-data';
 
 type Phase = 'home' | 'sorting' | 'final';
 
 export default function Index() {
   const [phase, setPhase] = useState<Phase>('home');
   const [stage, setStage] = useState(0);
-  const [deck, setDeck] = useState<CardItem[]>([]);
   const [finalCards, setFinalCards] = useState<CardItem[]>([]);
   const appRef = useRef<HTMLDivElement>(null);
 
   const startApp = () => {
     setStage(0);
-    setDeck(generateDeck(STAGES[0].count));
     setPhase('sorting');
     setTimeout(() => appRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
   };
 
   const handleStageComplete = (kept: CardItem[]) => {
     if (stage < STAGES.length - 1) {
-      const next = stage + 1;
-      setStage(next);
-      setDeck(kept);
+      setStage(stage + 1);
     } else {
       setFinalCards(kept);
       setPhase('final');
@@ -50,7 +46,10 @@ export default function Index() {
           {phase === 'sorting' && (
             <SortingBoard
               key={stage}
-              deck={deck}
+              deck={deckForStage(STAGES[stage].kind)}
+              kind={STAGES[stage].kind}
+              flippable={STAGES[stage].flippable}
+              keepLimit={STAGES[stage].keepLimit}
               stageTitle={STAGES[stage].title}
               stageSubtitle={STAGES[stage].subtitle}
               stageIndex={STAGES[stage].index}

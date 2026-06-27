@@ -28,8 +28,8 @@ export default function FinalCanvas({ selected, onRestart }: FinalCanvasProps) {
     setCards(
       selected.map((c, i) => ({
         ...c,
-        x: 40 + (i % cols) * 110 + Math.random() * 16,
-        y: 40 + Math.floor(i / cols) * 130 + Math.random() * 16,
+        x: 30 + (i % cols) * 210 + Math.random() * 16,
+        y: 30 + Math.floor(i / cols) * 170 + Math.random() * 16,
         z: 1,
       }))
     );
@@ -118,14 +118,13 @@ export default function FinalCanvas({ selected, onRestart }: FinalCanvasProps) {
               zIndex: card.z,
               backgroundColor: card.color,
             }}
-            className={`absolute flex h-[120px] w-[96px] cursor-grab flex-col justify-between rounded-xl p-3 transition-shadow active:cursor-grabbing ${
+            className={`absolute flex h-[160px] w-[190px] cursor-grab items-center rounded-xl p-4 transition-shadow active:cursor-grabbing ${
               dragId === card.id ? 'card-shadow-lg scale-105' : 'card-shadow'
             }`}
           >
-            <span className="text-[14px] font-semibold leading-tight text-foreground/90">
+            <span className="text-[12px] font-medium leading-snug text-foreground/90">
               {card.title}
             </span>
-            <span className="text-[10px] leading-snug text-foreground/50">{card.hint}</span>
           </div>
         ))}
       </div>
