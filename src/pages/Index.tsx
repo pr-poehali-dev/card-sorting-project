@@ -104,7 +104,7 @@ function Header({ onStart, active }: { onStart: () => void; active: Phase }) {
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Icon name="LayoutGrid" size={16} />
           </span>
-          <span className="font-display text-lg font-medium tracking-tight">Карта Смыслов</span>
+          <span className="font-display text-lg font-medium tracking-tight">Экзистенциальный диалог</span>
         </a>
         {active === 'home' && (
           <nav className="hidden items-center gap-7 md:flex">
@@ -136,19 +136,14 @@ function Hero({ onStart }: { onStart: () => void }) {
       <div className="dot-grid pointer-events-none absolute inset-0 opacity-60" />
       <div className="relative mx-auto max-w-6xl px-5 pb-20 pt-16 md:pb-28 md:pt-24">
         <div className="max-w-3xl animate-fade-in">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            Интерактивная сортировка карт в три этапа
-          </span>
+          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">Интерактивная техника работы с картами</span>
           <h1 className="mt-6 font-display text-5xl font-medium leading-[1.05] tracking-tight text-foreground md:text-7xl">
             Разложите хаос
             <br />
             по <span className="text-accent">смыслам</span>
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-            100 карт, три этапа отбора и общий холст для финальной композиции.
-            Передвигайте, сортируйте, ранжируйте — и соберите то, что важно именно вам.
-          </p>
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">100 ценностей, 30 вопросов, 30 миссий...
+Передвигайте, сортируйте, ранжируйте — и соберите свою карту, что важно именно вам!</p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
             <button
               onClick={onStart}
@@ -367,7 +362,7 @@ function Footer() {
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Icon name="LayoutGrid" size={14} />
           </span>
-          <span className="font-display font-medium">Карта Смыслов</span>
+          <span className="font-display font-medium">Экзистенциальный диалог</span>
         </div>
         <p className="text-sm text-muted-foreground">© 2026 — система сортировки карт</p>
       </div>
